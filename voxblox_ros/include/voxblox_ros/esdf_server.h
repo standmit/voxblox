@@ -39,6 +39,7 @@ class EsdfServer : public TsdfServer {
   virtual bool loadMap(const std::string& file_path);
 
   void updateEsdfEvent(const ros::TimerEvent& event);
+  void send_map_timer_cb(const ros::TimerEvent& te);
 
   /// Call this to update the ESDF based on latest state of the TSDF map,
   /// considering only the newly updated parts of the TSDF map (checked with
@@ -82,6 +83,8 @@ class EsdfServer : public TsdfServer {
   ros::Publisher esdf_pointcloud_pub_;
   ros::Publisher esdf_slice_pub_;
   ros::Publisher traversable_pub_;
+  ros::Publisher map_pub_;
+  ros::Timer map_timer_;
 
   /// Publish the complete map for other nodes to consume.
   ros::Publisher esdf_map_pub_;
@@ -101,6 +104,8 @@ class EsdfServer : public TsdfServer {
   float traversability_radius_;
   bool incremental_update_;
   int num_subscribers_esdf_map_;
+  std::string file_path_;
+  uint8_t map_number_ = 0;
 
   // ESDF maps.
   std::shared_ptr<EsdfMap> esdf_map_;

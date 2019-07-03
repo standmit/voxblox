@@ -1,7 +1,8 @@
 #include <voxblox_ros/conversions.h>
-
 #include "voxblox_ros/esdf_server.h"
 #include "voxblox_ros/ros_params.h"
+#include "ros/ros.h"
+#include "std_msgs/String.h"
 
 namespace voxblox {
 
@@ -49,10 +50,17 @@ void EsdfServer::setupRos() {
 
   esdf_map_pub_ =
       nh_private_.advertise<voxblox_msgs::Layer>("esdf_map_out", 1, false);
+  map_pub_ = nh_private_.advertise<std_msgs::String>("map_name",1 , true);
+  map_timer_ = nh_private_.createTimer(ros::Duration(1.0 / nh_private_.param("send_map_rate", 1.0)), &EsdfServer::send_map_timer_cb, this, false,
+		  nh_private_.param("autostart", false));
+
 
   // Set up subscriber.
   esdf_map_sub_ = nh_private_.subscribe("esdf_map_in", 1,
                                         &EsdfServer::esdfMapCallback, this);
+
+  //Path to save file
+  nh_private_.param("file_path", file_path_, std::string("/home/ubuntu/tmpfs_voxblox"));
 
   // Whether to clear each new pose as it comes in, and then set a sphere
   // around it to occupied.
@@ -254,6 +262,15 @@ void EsdfServer::clear() {
   // Publish a message to reset the map to all subscribers.
   constexpr bool kResetRemoteMap = true;
   publishMap(kResetRemoteMap);
+}
+
+void EsdfServer::send_map_timer_cb(const ros::TimerEvent& te) {
+	std_msgs::String msg;
+	msg.data = this->file_path_ + "/v" + std::to_string(this->map_number_) + ".vxblx";
+	if (saveMap(msg.data)){
+		map_pub_.publish(msg);
+		this->map_number_++;
+	}
 }
 
 }  // namespace voxblox
