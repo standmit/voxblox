@@ -554,7 +554,8 @@ bool TsdfServer::generateMesh() {
     }
   }
 
-  ROS_INFO_STREAM("Mesh Timings: " << std::endl << timing::Timing::Print());
+  if (verbose_)
+	  ROS_INFO_STREAM("Mesh Timings: " << std::endl << timing::Timing::Print());
   return true;
 }
 

@@ -264,6 +264,7 @@ void EsdfServer::clear() {
   publishMap(kResetRemoteMap);
 }
 
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void EsdfServer::send_map_timer_cb(const ros::TimerEvent& te) {
 	std_msgs::String msg;
 	msg.data = this->file_path_ + "/v" + std::to_string(this->map_number_) + ".vxblx";
@@ -272,5 +273,6 @@ void EsdfServer::send_map_timer_cb(const ros::TimerEvent& te) {
 		this->map_number_++;
 	}
 }
+#pragma GCC diagnostic pop
 
 }  // namespace voxblox
