@@ -79,6 +79,8 @@ class EsdfServer : public TsdfServer {
   /// constructor.
   void setupRos();
 
+  std::string past_filepath;
+
   /// Publish markers for visualization.
   ros::Publisher esdf_pointcloud_pub_;
   ros::Publisher esdf_slice_pub_;

@@ -3,6 +3,7 @@
 #include "voxblox_ros/ros_params.h"
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include <sys/stat.h>
 
 namespace voxblox {
 
@@ -28,7 +29,9 @@ EsdfServer::EsdfServer(const ros::NodeHandle& nh,
       publish_traversable_(false),
       traversability_radius_(1.0),
       incremental_update_(true),
-      num_subscribers_esdf_map_(0) {
+      num_subscribers_esdf_map_(0),
+	  past_filepath("")
+	  {
   // Set up map and integrator.
   esdf_map_.reset(new EsdfMap(esdf_config));
   esdf_integrator_.reset(new EsdfIntegrator(esdf_integrator_config,
@@ -264,13 +267,23 @@ void EsdfServer::clear() {
   publishMap(kResetRemoteMap);
 }
 
+inline bool file_exists(const std::string& filename) {
+	struct stat buffer;
+	return (stat(filename.c_str(), &buffer) == 0);
+}
+
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 void EsdfServer::send_map_timer_cb(const ros::TimerEvent& te) {
+	if (not past_filepath.empty()) {
+		if (file_exists(past_filepath))
+			return;
+	}
 	std_msgs::String msg;
 	msg.data = this->file_path_ + "/v" + std::to_string(this->map_number_) + ".vxblx";
 	if (saveMap(msg.data)){
 		map_pub_.publish(msg);
 		this->map_number_++;
+		past_filepath = msg.data;
 	}
 }
 #pragma GCC diagnostic pop
