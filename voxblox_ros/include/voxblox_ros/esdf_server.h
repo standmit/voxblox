@@ -86,7 +86,7 @@ class EsdfServer : public TsdfServer {
   ros::Publisher esdf_slice_pub_;
   ros::Publisher traversable_pub_;
   ros::Publisher map_pub_;
-  ros::Timer map_timer_;
+  ros::Publisher esdf_update_pub_;
 
   /// Publish the complete map for other nodes to consume.
   ros::Publisher esdf_map_pub_;
@@ -99,7 +99,12 @@ class EsdfServer : public TsdfServer {
 
   /// Timers.
   ros::Timer update_esdf_timer_;
+  ros::Timer map_timer_;
 
+  bool save_pbstream_by_timer_;
+  bool autostart_;
+  float send_map_rate_;
+  bool esdf_update_trigger_;
   bool clear_sphere_for_planning_;
   bool publish_esdf_map_;
   bool publish_traversable_;

@@ -1,4 +1,4 @@
-#include "voxblox_ros/esdf_server.h"
+#include <voxblox_ros/esdf_server.h>
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "voxblox");

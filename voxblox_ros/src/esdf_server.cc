@@ -1,9 +1,9 @@
 #include <voxblox_ros/conversions.h>
-#include "voxblox_ros/esdf_server.h"
 #include "voxblox_ros/ros_params.h"
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include <sys/stat.h>
+#include <voxblox_ros/esdf_server.h>
 
 namespace voxblox {
 
@@ -24,14 +24,18 @@ EsdfServer::EsdfServer(const ros::NodeHandle& nh,
                        const MeshIntegratorConfig& mesh_config)
     : TsdfServer(nh, nh_private, tsdf_config, tsdf_integrator_config,
                  mesh_config),
-      clear_sphere_for_planning_(false),
-      publish_esdf_map_(false),
-      publish_traversable_(false),
-      traversability_radius_(1.0),
-      incremental_update_(true),
-      num_subscribers_esdf_map_(0),
-	  past_filepath("")
-	  {
+				 esdf_update_trigger_(false),
+				 save_pbstream_by_timer_(false),
+				 autostart_(false),
+				 send_map_rate_(1.0),
+				 clear_sphere_for_planning_(false),
+				 publish_esdf_map_(false),
+				 publish_traversable_(false),
+				 traversability_radius_(1.0),
+				 incremental_update_(true),
+				 num_subscribers_esdf_map_(0),
+				 past_filepath("")
+				{
   // Set up map and integrator.
   esdf_map_.reset(new EsdfMap(esdf_config));
   esdf_integrator_.reset(new EsdfIntegrator(esdf_integrator_config,
@@ -42,25 +46,6 @@ EsdfServer::EsdfServer(const ros::NodeHandle& nh,
 }
 
 void EsdfServer::setupRos() {
-  // Set up publisher.
-  esdf_pointcloud_pub_ =
-      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("esdf_pointcloud",
-                                                              1, true);
-  esdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
-      "esdf_slice", 1, true);
-  traversable_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
-      "traversable", 1, true);
-
-  esdf_map_pub_ =
-      nh_private_.advertise<voxblox_msgs::Layer>("esdf_map_out", 1, false);
-  map_pub_ = nh_private_.advertise<std_msgs::String>("map_name",1 , true);
-  map_timer_ = nh_private_.createTimer(ros::Duration(1.0 / nh_private_.param("send_map_rate", 1.0)), &EsdfServer::send_map_timer_cb, this, false,
-		  nh_private_.param("autostart", false));
-
-
-  // Set up subscriber.
-  esdf_map_sub_ = nh_private_.subscribe("esdf_map_in", 1,
-                                        &EsdfServer::esdfMapCallback, this);
 
   //Path to save file
   nh_private_.param("file_path", file_path_, std::string("/home/ubuntu/tmpfs_voxblox"));
@@ -78,6 +63,28 @@ void EsdfServer::setupRos() {
   nh_private_.param("traversability_radius", traversability_radius_,
                     traversability_radius_);
 
+  // Set up publisher.
+  esdf_pointcloud_pub_ =
+      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("esdf_pointcloud",
+                                                              1, true);
+  esdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
+      "esdf_slice", 1, true);
+  traversable_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
+      "traversable", 1, true);
+
+  esdf_map_pub_ = nh_private_.advertise<voxblox_msgs::Layer>("esdf_map_out", 1, false);
+
+
+  nh_private_.param("esdf_update_trigger", esdf_update_trigger_, esdf_update_trigger_);
+  if (esdf_update_trigger_) {
+	  esdf_update_pub_ = nh_private_.advertise<std_msgs::Empty>("esdf_update_trigger", 1, true);
+  }
+
+
+  // Set up subscriber.
+  esdf_map_sub_ = nh_private_.subscribe("esdf_map_in", 1,
+                                        &EsdfServer::esdfMapCallback, this);
+
   double update_esdf_every_n_sec = 1.0;
   nh_private_.param("update_esdf_every_n_sec", update_esdf_every_n_sec,
                     update_esdf_every_n_sec);
@@ -86,6 +93,15 @@ void EsdfServer::setupRos() {
     update_esdf_timer_ =
         nh_private_.createTimer(ros::Duration(update_esdf_every_n_sec),
                                 &EsdfServer::updateEsdfEvent, this);
+  }
+
+  nh_private_.param("save_pbstream_by_timer", save_pbstream_by_timer_, save_pbstream_by_timer_);
+  if (save_pbstream_by_timer_) {
+	  map_pub_ = nh_private_.advertise<std_msgs::String>("map_name", 1, true);
+	  nh_private_.param("autostart", autostart_, autostart_);
+	  nh_private_.param("send_map_rate", send_map_rate_, send_map_rate_);
+	  map_timer_ = nh_private_.createTimer(ros::Duration(1.0 / send_map_rate_), &EsdfServer::send_map_timer_cb, this, false,
+			  autostart_);
   }
 }
 
@@ -129,6 +145,10 @@ bool EsdfServer::generateEsdfCallback(
 
 void EsdfServer::updateEsdfEvent(const ros::TimerEvent& /*event*/) {
   updateEsdf();
+  if (esdf_update_trigger_) {
+	  static std_msgs::Empty esdf_msg;
+	  esdf_update_pub_.publish(esdf_msg);
+  }
 }
 
 void EsdfServer::publishPointclouds() {
